@@ -41,13 +41,8 @@ const sendMessageToDiscord = async (content: string) => {
 /* States */
 
 const state: {
-  previousContentNumberOfLines: number;
-  players: Record<string, {
-    id: string;
-    name: string;
-  }>;
+  players: Record<string, string>;
 } = {
-  previousContentNumberOfLines: getSplittedCoreKeeperServerLog().length,
   players: {},
 };
 
@@ -60,52 +55,42 @@ for await (const event of watcher) {
     continue;
   }
 
+  let currentPlayers: Record<string, string> = {};
+
   const lines = getSplittedCoreKeeperServerLog();
-  const diff = state.previousContentNumberOfLines - lines.length;
 
-  if (diff === 0) {
-    continue;
-  }
-
-  lines.slice(diff).forEach((line) => {
+  lines.forEach((line) => {
     const connected = line.match(/\[userid:(\d+)]\s+player\s+(.+)\s+connected/);
+    const disconnected = line.match(/Disconnected\s+from\s+userid:(\d+)/);
 
     if (connected) {
       const [_, connectedUserId, connectedUserName] = connected;
-
-      state.players = {
-        ...state.players,
-        [connectedUserId]: {
-          id: connectedUserId,
-          name: connectedUserName,
-        },
-      };
-
-      log.info(`${connectedUserName} (${connectedUserId}) connected`);
-      sendMessageToDiscord(
-        `:inbox_tray: ${connectedUserName} (${connectedUserId})`,
-      );
+      currentPlayers[connectedUserId] = connectedUserName;
     }
-
-    const disconnected = line.match(/Disconnected\s+from\s+userid:(\d+)/);
 
     if (disconnected) {
       const [_, disconnectedUserId] = disconnected;
-      const player = state.players[disconnectedUserId];
-
-      if (!player) {
-        log.error(
-          `:thinking: There is no player matching \`${disconnectedUserId}\`.`,
-        );
-        return;
-      }
-
-      log.info(`${player.name} (${player.id}) disconnected`);
-      sendMessageToDiscord(`:outbox_tray: ${player.name} (${player.id})`);
-
-      delete state.players[disconnectedUserId];
+      delete currentPlayers[disconnectedUserId];
     }
   });
 
-  state.previousContentNumberOfLines = lines.length;
+  Object.keys(state.players).forEach((playerId) => {
+    if (!currentPlayers[playerId]) {
+      const playerName = state.players[playerId];
+      log.info(`${playerName} (${playerId}) disconnected`);
+      sendMessageToDiscord(
+        `:outbox_tray: ${playerName} (${playerId})`,
+      );
+    }
+  });
+
+  Object.keys(currentPlayers).forEach((playerId) => {
+    if (!state.players[playerId]) {
+      const playerName = currentPlayers[playerId];
+      log.info(`${playerName} (${playerId}) connected`);
+      sendMessageToDiscord(`:inbox_tray: ${playerName} (${playerId})`);
+    }
+  });
+
+  state.players = currentPlayers;
 }
