@@ -29,24 +29,23 @@ const getSplittedCoreKeeperServerLog = () => {
 const sendMessageToDiscord = async (content: string) => {
   try {
     await fetch(DISCORD_WEBHOOK_URL, {
-      body: JSON.stringify({
-        content
-      }),
-      headers: {
-        "Content-Type": "application/json"
-      },
+      body: JSON.stringify({ content }),
+      headers: { "Content-Type": "application/json" },
       method: "POST",
-    })
-  } catch(error) {
+    });
+  } catch (error) {
     log.error(error);
   }
-}
+};
 
 /* States */
 
 const state: {
   previousContentNumberOfLines: number;
-  players: Record<string, string>;
+  players: Record<string, {
+    id: string;
+    name: string;
+  }>;
 } = {
   previousContentNumberOfLines: getSplittedCoreKeeperServerLog().length,
   players: {},
@@ -76,20 +75,33 @@ for await (const event of watcher) {
 
       state.players = {
         ...state.players,
-        [connectedUserId]: connectedUserName
-      }
+        [connectedUserId]: {
+          id: connectedUserId,
+          name: connectedUserName,
+        },
+      };
 
-      log.info(`${connectedUserName} (${connectedUserId}) connected`)
-      sendMessageToDiscord(`:inbox_tray: ${connectedUserName} (${connectedUserId})`)
+      log.info(`${connectedUserName} (${connectedUserId}) connected`);
+      sendMessageToDiscord(
+        `:inbox_tray: ${connectedUserName} (${connectedUserId})`,
+      );
     }
 
     const disconnected = line.match(/Disconnected\s+from\s+userid:(\d+)/);
 
     if (disconnected) {
       const [_, disconnectedUserId] = disconnected;
+      const player = state.players[disconnectedUserId];
 
-      log.info(`${state.players[disconnectedUserId]} (${disconnectedUserId}) disconnected`)
-      sendMessageToDiscord(`:outbox_tray: ${state.players[disconnectedUserId]} (${disconnectedUserId})`)
+      if (!player) {
+        log.error(
+          `:thinking: There is no player matching \`${disconnectedUserId}\`.`,
+        );
+        return;
+      }
+
+      log.info(`${player.name} (${player.id}) disconnected`);
+      sendMessageToDiscord(`:outbox_tray: ${player.name} (${player.id})`);
 
       delete state.players[disconnectedUserId];
     }
