@@ -48,13 +48,7 @@ const state: {
 
 /* Main */
 
-const watcher = Deno.watchFs(CORE_KEEPER_SERVER_LOG_PATH);
-
-for await (const event of watcher) {
-  if (event.kind !== "modify") {
-    continue;
-  }
-
+setInterval(() => {
   let currentPlayers: Record<string, string> = {};
 
   const lines = getSplittedCoreKeeperServerLog();
@@ -93,4 +87,4 @@ for await (const event of watcher) {
   });
 
   state.players = currentPlayers;
-}
+}, 20000);
