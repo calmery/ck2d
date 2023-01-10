@@ -87,4 +87,4 @@ setInterval(() => {
   });
 
   state.players = currentPlayers;
-}, 20000);
+}, 4000);
