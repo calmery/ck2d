@@ -1,5 +1,6 @@
 {
   "tasks": {
+    "compile:windows": "deno compile --allow-env --allow-net --allow-read --target x86_64-pc-windows-msvc main.ts",
     "dev": "deno run --allow-env --allow-net --allow-read --watch main.ts"
   }
 }
